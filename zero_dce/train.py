@@ -35,18 +35,17 @@ def train(config):
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	print(f"Using Device: {device}")
 	os.environ['CUDA_VISIBLE_DEVICES']='0'
-	scale_factor = config.scale_factor
 
 	# visualize training process on tensorboard
 	config_str = f"epochs = {config.num_epochs} | lr={config.lr} | batch_size={config.train_batch_size} | train from start = {not config.load_pretrain} | saved to {config.snapshots_folder}"
 	tb = SummaryWriter(comment=config_str)
 	
     # init model
-	DCE_net = model.enhance_net_nopool(scale_factor).to(device)
+	model = model.enhance_net_nopool(config.scale_factor).to(device)
 
 	# load pre-trained weight if specified
 	if config.load_pretrain:
-		DCE_net.load_state_dict(torch.load(config.pretrain_dir))
+		model.load_state_dict(torch.load(config.pretrain_dir))
 		print(f"Pre-trained weight loaded from {config.pretrain_dir}")
 	
 	# load dataset
@@ -66,11 +65,11 @@ def train(config):
 	L_TV = MyLoss.L_TV()
 
 	# optimizer
-	optimizer = torch.optim.Adam(DCE_net.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+	optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
 	
 	# start training
 	for epoch in range(config.num_epochs):
-		DCE_net.train()
+		model.train()
 		with tqdm(train_loader, unit="batch") as tepoch:
 			for batch in tepoch:
 
@@ -79,7 +78,7 @@ def train(config):
 
 				E = 0.6
 
-				enhanced_image, A = DCE_net(img)
+				enhanced_image, A = model(img)
 
 				Loss_TV = 1600*L_TV(A)
 				# Loss_TV = 200*L_TV(A)			
@@ -92,13 +91,13 @@ def train(config):
 				
 				optimizer.zero_grad()
 				loss.backward()
-				torch.nn.utils.clip_grad_norm(DCE_net.parameters(),config.grad_clip_norm)
+				torch.nn.utils.clip_grad_norm(model.parameters(),config.grad_clip_norm)
 				optimizer.step()
 
 				tepoch.set_postfix(epoch="{}/{}".format(epoch+1, config.num_epochs), loss=loss.cpu().detach().numpy())
 
 		# validate
-		psnr, ssim, mae = eval(DCE_net, test_set, device, tb_writer=tb, out_dir=f"./result/{date.today()}/epoch-{epoch}-viz/")
+		psnr, ssim, mae = eval(model, test_set, device, tb_writer=tb, out_dir=f"./result/{date.today()}/epoch-{epoch}-viz/")
 		print(f"Epoch {epoch}'s PSNR = {psnr} | SSIM = {ssim} | MAE = {mae}")
 
 		# add info on tensorboard
@@ -108,7 +107,7 @@ def train(config):
 		tb.add_scalar("MAE", mae, epoch)
 
 		# save weight each epoch
-		torch.save(DCE_net.state_dict(), config.snapshots_folder + "Epoch" + str(epoch) + '.pth')
+		torch.save(model.state_dict(), config.snapshots_folder + "Epoch" + str(epoch) + '.pth')
 
 	tb.close()
 

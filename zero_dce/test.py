@@ -25,11 +25,11 @@ def test(config):
 	scale_factor = config.scale_factor
 	
     # init model
-	DCE_net = model.enhance_net_nopool(scale_factor).to(device)
+	model = model.enhance_net_nopool(scale_factor).to(device)
 
 	# load pre-trained weight if specified
 	if config.model_path:
-		DCE_net.load_state_dict(torch.load(config.model_path))
+		model.load_state_dict(torch.load(config.model_path))
 		print(f"Pre-trained weight loaded from {config.model_path}")
 	
 	# load dataset
@@ -37,7 +37,7 @@ def test(config):
 	test_set = SICE_Dataset(test_dir, under_expose_only=True, resize=(1200, 900))
 
 	# test
-	psnr, ssim, mae = eval(DCE_net, test_set, device, out_dir=f"./result/{config.model_path.split('/')[-1].split('.')[0]}/")
+	psnr, ssim, mae = eval(model, test_set, device, out_dir=f"./result/{config.model_path.split('/')[-1].split('.')[0]}/")
 	print(f"Testing model: {config.model_path} \nAverage PSNR = {psnr} | SSIM = {ssim} | MAE = {mae}")
 	
 
