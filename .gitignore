@@ -1,3 +1,9 @@
+# intermediate output & results
+zero_dce/result/**
+zero_dce/runs/**
+hdrnet/result/**
+hdrnet/runs/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
