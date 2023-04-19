@@ -6,6 +6,7 @@ import os
 import random
 import skimage.exposure
 
+from datetime import datetime
 from tqdm import tqdm
 from PIL import Image
 from torchvision import transforms
@@ -63,7 +64,12 @@ def check_and_rotate(img1, img2):
 	if img1.size != img2.size:
 		return img1.rotate(-90, expand=True)
 	return img1
-	
+
+def get_path_name(path):
+    return os.path.basename(os.path.normpath(path))
+
+def get_timecode():
+      return datetime.now().strftime("%y%m%d_%H%M")
 
 def eval(model, dataset, device, tb_writer=None, out_dir=None):
 	"""
@@ -126,6 +132,6 @@ def eval(model, dataset, device, tb_writer=None, out_dir=None):
 
 
 	# report time
-	print(f"Total time used = {total_time} s inferencing {len(dataset)} images on [{device}] => {len(dataset) / total_time} FPS")
+	print(f"Total time used = {total_time} s inferencing {len(dataset)} images on [{device}] ({len(dataset) / total_time} FPS)")
 
 	return np.mean(psnr_list), np.mean(ssim_list), np.mean(mae_list)

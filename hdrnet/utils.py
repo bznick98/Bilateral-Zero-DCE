@@ -5,7 +5,9 @@ import glob
 import torch
 import random
 import time
+import skimage
 
+from datetime import datetime
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -104,9 +106,14 @@ def check_and_rotate(img1, img2):
 	if img1.size != img2.size:
 		return img1.rotate(-90, expand=True)
 	return img1
-	
 
-def eval(model, dataset, device, tb_writer=None, out_dir=None):
+def get_path_name(path):
+    return os.path.basename(os.path.normpath(path))
+	
+def get_timecode():
+      return datetime.now().strftime("%y%m%d_%H%M")
+
+def eval(model, dataset, device, out_dir=None):
 	"""
 	given a model, evaluate the model performance (PSNR, SSIM) on the dataset
 	return:
@@ -122,9 +129,8 @@ def eval(model, dataset, device, tb_writer=None, out_dir=None):
 	ssim_list = []
 	mae_list = []
 
-	# visualize batch # on tensorboard is tensorboard provided
+	# visualize batch number if on this list
 	visualize_idx = [0,1,5,10,20,50,100,300,500]
-	visualize_imgs = []
 
 	psnr = PeakSignalNoiseRatio(reduction=None)
 	ssim = StructuralSimilarityIndexMeasure(data_range=1.0)
@@ -135,19 +141,15 @@ def eval(model, dataset, device, tb_writer=None, out_dir=None):
 
 	with torch.no_grad():
 		for i, (img_low, img_full, ref) in enumerate(tqdm(dataloader)):
-			img_low, img_full, ref = img_low.to(device), img_full, ref.to(device)
+			img_low, img_full, ref = img_low.to(device), img_full.to(device), ref.to(device)
 
 			start = time.time()
-			enhanced, A = model(img_low, img_full)
+			enhanced = model(img_low, img_full)
 			total_time += time.time() - start
 			
 			psnr_list.append(psnr(enhanced.cpu(), ref.cpu()))
 			ssim_list.append(ssim(enhanced.cpu(), ref.cpu()))
 			mae_list.append(mae(enhanced.cpu(), ref.cpu()))
-
-			if tb_writer and i in visualize_idx:
-				visualize_imgs.append(hstack_tensors(img_full[0], enhanced[0], ref[0]))
-				# display_tensors(img[0], enhanced[0], ref[0])
 			
 			if out_dir and i in visualize_idx:
 				out_dir_i = os.path.join(out_dir, str(i), '')
@@ -161,12 +163,9 @@ def eval(model, dataset, device, tb_writer=None, out_dir=None):
 			# if i == 2:
 			# 	display_tensors(img[0], enhanced[0], ref[0])
 			# 	while True: pass
-	
-	if tb_writer:
-		tb_writer.add_image("Testset Visualization: Input | Enhanced | Ref", make_grid(visualize_imgs, nrow=1))
 
 
 	# report time
-	print(f"Total time used = {total_time} s inferencing {len(dataset)} images on [{device}] => {len(dataset) / total_time} FPS")
+	print(f"Total time used = {total_time:.3f} s inferencing {len(dataset)} images on [{device}] ({len(dataset) / total_time:.3f} FPS)")
 
 	return np.mean(psnr_list), np.mean(ssim_list), np.mean(mae_list)

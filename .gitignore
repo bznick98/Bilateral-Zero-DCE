@@ -1,7 +1,7 @@
 # intermediate output & results
-zero_dce/result/**
+zero_dce/visualization/**
 zero_dce/runs/**
-hdrnet/result/**
+hdrnet/visualization/**
 hdrnet/runs/**
 
 # Byte-compiled / optimized / DLL files

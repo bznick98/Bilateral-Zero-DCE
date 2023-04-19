@@ -6,10 +6,27 @@ from torchvision.models.vgg import vgg16
 
 import numpy as np
 
+class ZeroReferenceLoss(nn.Module):
+    def __init__(self, patch_size=16, TV_loss_weight=1, E=0.6):
+        super(ZeroReferenceLoss, self).__init__()
+        self.E = E
 
-class L_color(nn.Module):
+        self.color_consistency_loss = ColorConsistencyLoss()
+        self.spatial_consistency_loss = SpatialConsistencyLoss()
+        self.exposure_control_loss = ExposureControlLoss(patch_size)
+        self.illumination_smoothness_loss = IlluminationSmoothnessLoss(TV_loss_weight)
+
+    def forward(self, input, enhanced, A):
+        loss_TV = 1600 * self.illumination_smoothness_loss(A)
+        loss_spa = torch.mean(self.spatial_consistency_loss(enhanced, input))
+        loss_col = 5 * torch.mean(self.color_consistency_loss(enhanced))
+        loss_exp = 10 * torch.mean(self.exposure_control_loss(enhanced, self.E))
+
+        return loss_TV + loss_spa + loss_col + loss_exp
+
+class ColorConsistencyLoss(nn.Module):
     def __init__(self):
-        super(L_color, self).__init__()
+        super(ColorConsistencyLoss, self).__init__()
 
     def forward(self, x):
         b,c,h,w = x.shape
@@ -24,10 +41,10 @@ class L_color(nn.Module):
         return k
 
 			
-class L_spa(nn.Module):
+class SpatialConsistencyLoss(nn.Module):
 
     def __init__(self):
-        super(L_spa, self).__init__()
+        super(SpatialConsistencyLoss, self).__init__()
         # print(1)kernel = torch.FloatTensor(kernel).unsqueeze(0).unsqueeze(0)
         kernel_left = torch.FloatTensor( [[0,0,0],[-1,1,0],[0,0,0]]).cuda().unsqueeze(0).unsqueeze(0)
         kernel_right = torch.FloatTensor( [[0,0,0],[0,1,-1],[0,0,0]]).cuda().unsqueeze(0).unsqueeze(0)
@@ -70,10 +87,10 @@ class L_spa(nn.Module):
 
         return E
     
-class L_exp(nn.Module):
+class ExposureControlLoss(nn.Module):
 
-    def __init__(self,patch_size):
-        super(L_exp, self).__init__()
+    def __init__(self, patch_size):
+        super(ExposureControlLoss, self).__init__()
         # print(1)
         self.pool = nn.AvgPool2d(patch_size)
         # self.mean_val = mean_val
@@ -86,9 +103,9 @@ class L_exp(nn.Module):
         d = torch.mean(torch.pow(mean- torch.FloatTensor([mean_val] ).cuda(),2))
         return d
         
-class L_TV(nn.Module):
+class IlluminationSmoothnessLoss(nn.Module):
     def __init__(self,TVLoss_weight=1):
-        super(L_TV,self).__init__()
+        super(IlluminationSmoothnessLoss,self).__init__()
         self.TVLoss_weight = TVLoss_weight
 
     def forward(self,x):
